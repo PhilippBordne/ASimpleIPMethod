@@ -2,7 +2,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 from timeit import default_timer as timer
 from plot_2d import plot_2d
-from ldlt_solver import LDLT_solver_eliminate, LDLT_solver_multiply
+from ldlt_solver import LDLTSolverEigen, LDLTSolverOwn, NumpySolver
 
 
 EMPTY = np.ndarray((0,))
@@ -30,8 +30,7 @@ class IPSolver():
         ne = len(l_init) if l_init is not None else 0
         ni = len(u_init) if u_init is not None else 0
         
-        solver = LDLT_solver_eliminate(nx, ne, ni)
-        # solver = LDLT_solver_multiply(nx, ne, ni)
+        solver = LDLTSolverEigen(nx, ne, ni)
         
         A = np.ndarray((0, nx)) if (A is None) else A
         C = np.ndarray((0, nx)) if (C is None) else C
@@ -64,15 +63,6 @@ class IPSolver():
                     # print(f"Solution found after {i} iterations.")
                     break
 
-            # # compute the linear system matrix
-            # J_L = np.hstack((Q, A.T, C.T, np.zeros((nx, ni))))
-            # J_e = np.hstack((A, np.zeros((ne, ne + 2 * ni))))
-            # J_i = np.hstack((C, np.zeros((ni, ne + ni)), np.eye(ni)))
-            # J_c = np.hstack((np.zeros((ni, nx + ne)), np.diag(s_k), np.diag(u_k)))
-            # M = np.vstack((J_L, J_e, J_i, J_c))
-            
-            # solve the linear system
-            # print(np.linalg.solve(M, - r))
             dz = solver.solve(Q, A, C, s_k, u_k, r)
                         
             dx, dl, du, ds = np.split(dz, [nx, nx + ne, nx + ne + ni])

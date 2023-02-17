@@ -70,6 +70,7 @@ class LDLTSolverOwn(LDLTSolver):
 
         # convert residual to RHS and match the row permutation of M
         # perform all computations in-place
+        # z = - np.array(r[perm], dtype=np.float128)
         z = - r[perm]
         
         # backsolve for Lz = r, z prior is r, posterior is z
@@ -119,8 +120,6 @@ class LDLT_solver_multiply(LinSysSolver):
                        np.hstack((C, np.zeros((self.ni, self.ne + self.ni)), S)),
                        np.hstack((np.zeros((self.ni, self.nx + self.ne)), S, U @ S))
                        ))
-        print(np.linalg.matrix_rank(M))
-        print(np.linalg.eigvals(M))
         
         return M, r
         
