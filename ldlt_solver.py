@@ -3,7 +3,7 @@ from scipy.linalg import ldl
 from matplotlib import pyplot as plt
 from eigenpy import LDLT
 
-
+#TODO: Consider making LinSysSolver independent from problem dimensions
 class LinSysSolver():
     def __init__(self, nx: int, ne: int, ni: int) -> None:
         self.nx = nx

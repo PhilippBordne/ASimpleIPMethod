@@ -1,33 +1,34 @@
-from qp_loader import ConvexQP
+from qp_loader import RandomQP, ControlQP
 from ip_solver import IPSolver
+from ldlt_solver import LDLTSolverEigen
 from plot_2d import plot_2d
 import numpy as np
 from timeit import default_timer as timer
+from matplotlib import pyplot as plt
 
 
-qp = ConvexQP(100, seed=1)
+# qp = RandomQP(40, seed=1)
+qp = ControlQP(4, seed=1)
+solver = LDLTSolverEigen(qp.nx, qp.ne, qp.ni)
+ip_method = IPSolver(qp, solver)
 
-Q = qp.Q
-c = qp.c
-C = qp.C
-d = qp.d
+plt.spy(qp.Q[10 * 4:10 * 4+8,10 * 4:10 * 4+8])
+plt.show()
 
-ni = len(C)
-nx = len(Q)
+plt.spy(qp.A)
+plt.show()
 
-solver = IPSolver('some')
-print(ni)
-start = timer()
-# res = solver.solve_QP(Q=Q, c=c, C=C, d=d, x_init=np.zeros(nx), u_init=np.ones(ni), s_init=np.ones(ni), max_iter=400, tol_r=1e-6, tol_t=1e-6)
-# res = solver.solve_QP(Q=Q, c=c, C=C, d=d, x_init=np.zeros(nx, dtype=np.float128), u_init=np.ones(ni, dtype=np.float128), s_init=np.ones(ni, dtype=np.float128), max_iter=400)
-res = solver.solve_QP(Q=Q, c=c, C=C, d=d, x_init=np.zeros(nx), u_init=np.ones(ni), s_init=np.ones(ni), max_iter=400)
-end = timer()
-print(end - start)
+while not ip_method.verify_convergence() and not ip_method.reached_iteration_limit():
+    ip_method.solver_step()
+    
+print(f"Problem converged: {ip_method.verify_convergence()}")
+print(f"In {ip_method.iter} iterations.")
 
 print('Solution CVXPY')
 print(qp.get_x_sol_cvxpy())
 
 print('Solution IPMethod')
-print(res[:nx, -1])
+print(qp.x)
 
-# plot_2d(Q=Q, c=c, C=c, d=d, x_traj=res[:2], x_min=-10, x_max=10, y_min=-10, y_max=10)
+print("Difference")
+print(qp.x - qp.get_x_sol_cvxpy())

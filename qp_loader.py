@@ -1,19 +1,19 @@
 import numpy as np
 from osqp_benchmarks.problem_classes.random_qp import RandomQPExample
+from osqp_benchmarks.problem_classes.control import ControlExample
 from ldlt_solver import LinSysSolver
 
 class ConvexQP():
-    def __init__(self, n: int, seed=1, store_traj=False, max_iter=100) -> None:
+    def __init__(self, n: int, seed=1, sparsity=0.15, store_traj=False) -> None:
         """
         Class interfacing the OSQP benchmark suite. Loads a problem from the OSQP benchmark suit and holds the matrices
         and vectors of the QP in the format as specified for this solver.
         n: dimension of decision variable
         """
         
-        self.osqp = RandomQPExample(n, seed)
-        
-        self.Q = self.osqp.P.toarray()
-        self.c = self.osqp.q
+        self.Q, self.c = self.get_cost()
+        # self.Q = self.osqp.P.toarray()
+        # self.c = self.osqp.q
         self.A, self.b = self.get_equality_constraint()
         self.C, self.d = self.get_inequality_constraint()
         
@@ -41,10 +41,10 @@ class ConvexQP():
         
         
     def get_residual(self, tau):
-        r_L = self.Q @ self.x + self.c + self.A.T @ self.l + self.C.T @ self.u
+        r_L = self.Q @ self.x + self.c + self.A.T @ self.l + self.C.T @ self.mu
         r_e = self.A @ self.x - self.b
         r_i = self.C @ self.x - self.d + self.s
-        r_c = self.u * self.s - tau
+        r_c = self.mu * self.s - tau
         
         r = np.hstack([r_L, r_e, r_i, r_c])
         return r
@@ -55,15 +55,14 @@ class ConvexQP():
         return self.osqp.revert_cvxpy_solution()[0]
     
     
+    def get_equality_constraint(self):
+        raise NotImplementedError("Must be implemented by derived class of ConvexQP.")
+    
+    def get_cost(self):
+        raise NotImplementedError("Must be implemented by derived class of ConvexQP.")
+    
     def get_inequality_constraint(self):
-        C = self.osqp.A.toarray()
-        d = self.osqp.u
-        # remove all constraints where row of matrix C is all 0s
-        non_zero_idx = []
-        for i, row in enumerate(C):
-            if not np.all(row==0):
-                non_zero_idx += [i]
-        return C[non_zero_idx], d[non_zero_idx]
+        raise NotImplementedError("Must be implemented by derived class of ConvexQP.")
     
     
     def compute_step(self, solver: LinSysSolver, tau: float):
@@ -76,7 +75,7 @@ class ConvexQP():
             raise Exception("No step size has been computed for the current iterate.")
         self.x += alpha * self.p[:self.idx_l]
         self.l += alpha * self.p[self.idx_l:self.idx_mu]
-        self.mu += alpha * self.p[self.idx_mu:self.idx_su]
+        self.mu += alpha * self.p[self.idx_mu:self.idx_s]
         self.s += alpha * self.p[self.idx_s:]
         
         self.p = None
@@ -88,13 +87,6 @@ class ConvexQP():
             raise Exception("No step size has been computed for the current iterate.")
         return np.split(self.p[self.idx_mu:], [self.ni])
     
-    def get_equality_constraint(self):
-        # A = np.ndarray((0, nx)) if (A is None) else A
-        # C = np.ndarray((0, nx)) if (C is None) else C
-        
-        # b = np.ndarray((0,)) if (b is None) else b
-        # d = np.ndarray((0,)) if (d is None) else d
-        pass
     
     def get_x_init(self):
         #TODO: move into solver class and use heuristic from OOQP
@@ -111,3 +103,81 @@ class ConvexQP():
     def get_s_init(self):
         #TODO: move into solver class and use heuristic from OOQP
         return 10 * np.ones(self.ni)
+    
+
+class RandomQP(ConvexQP):
+    # self.__init__(self, n: int, seed=1, sparsity=0.15, store_traj=False) -> None:
+    #     super().__init__()
+    def __init__(self, n: int, seed=1, sparsity=0.15, store_traj=False) -> None:
+        self.osqp = RandomQPExample(n, seed, sparsity)
+        
+        super().__init__(n, seed, sparsity, store_traj)
+    
+    def get_equality_constraint(self):
+        A = self.osqp.A.toarray()[:self.osqp.ne]
+        b = self.osqp.l[:self.osqp.ne]
+
+        # get rid of all-zero rows
+        non_zero_idx = []
+        for i, row in enumerate(A):
+            if not np.all(row==0):
+                non_zero_idx += [i]
+        return A[non_zero_idx], b[non_zero_idx]
+    
+    
+    def get_inequality_constraint(self):
+        C = self.osqp.A.toarray()[self.osqp.ne:]
+        d = self.osqp.u[self.osqp.ne:]
+
+        # get rid of all-zero rows
+        non_zero_idx = []
+        for i, row in enumerate(C):
+            if not np.all(row==0):
+                non_zero_idx += [i]
+        return C[non_zero_idx], d[non_zero_idx]
+    
+    def get_cost(self):
+        Q = self.osqp.P.toarray()
+        c = self.osqp.q
+        return Q, c
+    
+
+class ControlQP(ConvexQP):
+    def __init__(self, n: int, seed=1, sparsity=0.15, store_traj=False) -> None:
+        self.osqp = ControlExample(n)
+        
+        super().__init__(n, seed, sparsity, store_traj)
+        
+        
+    def get_cost(self):
+        Q = self.osqp.qp_problem['P'].toarray()
+        c = self.osqp.qp_problem['q']
+        
+        return Q, c
+    
+    def get_equality_constraint(self):
+        m = self.osqp.qp_problem['m']   # no of constraints
+        n = self.osqp.qp_problem['n']   # no of variables (x & u)
+        
+        m_e = m - n     # upper and lower bounds per variables, remainder are system dynamics
+        
+        A = self.osqp.qp_problem['A'].toarray()[:m_e]
+        b = self.osqp.qp_problem['l'][:m_e]
+        
+        return A, b
+    
+    def get_inequality_constraint(self):
+        m = self.osqp.qp_problem['m']   # no of constraints
+        n = self.osqp.qp_problem['n']   # no of variables (x & u)
+        
+        m_e = m - n     # upper and lower bounds per variables, remainder are system dynamics
+        
+        C = self.osqp.qp_problem['A'].toarray()[m_e:]
+        d_l = self.osqp.qp_problem['l'][m_e:]
+        d_u = self.osqp.qp_problem['u'][m_e:]
+        
+        C = np.vstack((C, -C))
+        d = np.hstack((d_u, -d_l))
+        
+        return C, d
+    

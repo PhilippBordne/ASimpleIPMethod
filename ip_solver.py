@@ -13,7 +13,7 @@ class IPSolver():
         self.solver = solver
         self.tol_r = tol_r
         
-        self.t = t_init
+        self.tau = t_init
         self.red_t = red_t
         self.tol_t = tol_t
         
@@ -27,17 +27,18 @@ class IPSolver():
         self.qp.compute_step(self.solver, self.tau)
         alpha = self.compute_step_length()
         self.qp.execute_step(alpha)
+        self.iter += 1
     
     
     def verify_convergence(self):
-        r = self.qp.get_residual(self.t)
-        if np.max(r) <= tol_r:
+        r = self.qp.get_residual(self.tau)
+        if np.max(r) <= self.tol_r:
             # only if there are inequalities we need to reduce tau
-            if len(u_k) > 0:
-                if tau <= tol_t:
+            if self.qp.ni > 0:
+                if self.tau <= self.tol_t:
                     return True
                 else:
-                    tau *= red_t
+                    self.tau *= self.red_t
             else:
                 return True
         return False
@@ -48,16 +49,16 @@ class IPSolver():
         dmu, ds = self.qp.get_step_mu_s() 
         # only if there are inequality constraints:
         if len(self.qp.mu) > 0:
-            while alpha >= min_alpha:
+            while alpha >= self.min_alpha:
                 u_t = self.qp.mu + alpha * dmu
                 s_t = self.qp.s + alpha * ds
                 if np.all(u_t >= 0.05 * np.min(self.qp.mu)) and np.all(s_t >= 0.05 * np.min(self.qp.s)):
                     break
                 alpha *= self.red_alpha
-            if alpha < min_alpha:
+            if alpha < self.min_alpha:
                 raise('No valid step length found.')
         return alpha
         
     
-    def reached_iteration_limit():
+    def reached_iteration_limit(self):
         return self.iter >= self.max_iter
