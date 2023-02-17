@@ -25,7 +25,7 @@ end = timer()
 print(end - start)
 
 print('Solution CVXPY')
-print(qp.get_get_x_sol())
+print(qp.get_x_sol_cvxpy())
 
 print('Solution IPMethod')
 print(res[:nx, -1])
