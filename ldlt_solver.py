@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.linalg import ldl
 from matplotlib import pyplot as plt
-from eigenpy import LDLT
+import eigenpy
 
 #TODO: Consider making LinSysSolver independent from problem dimensions
 class LinSysSolver():
@@ -58,7 +58,7 @@ class LDLTSolver(LinSysSolver):
 
 class LDLTSolverEigen(LDLTSolver):
     def solve_lin_sys(self, M, r):
-        decomp = LDLT(M)
+        decomp = eigenpy.LDLT(M)
         return decomp.solve(-r)
     
     
@@ -86,8 +86,7 @@ class LDLTSolverOwn(LDLTSolver):
         
         return z
     
-
-class NumpySolver(LinSysSolver):
+class LUSolver(LinSysSolver):
     def prepare_lin_sys(self, Q, A, C, s, mu, r):
         # compute the linear system matrix
         J_L = np.hstack((Q, A.T, C.T, np.zeros((self.nx, self.ni))))
@@ -98,33 +97,17 @@ class NumpySolver(LinSysSolver):
         
         return M, r
     
+    def recover_step(self, Q, A, C, s, mu, r, delta_p):
+        return delta_p
+
+class LUSolverNumpy(LUSolver):
     def solve_lin_sys(self, M, r):
         return np.linalg.solve(M, -r)
     
-    def recover_step(self, Q, A, C, s, mu, r, delta_p):
-        return delta_p
+class LUSolverEigen(LUSolver):
     
-
-    
-class LDLT_solver_multiply(LinSysSolver):
-    def __init__(self, nx: int, ne: int, ni: int) -> None:
-        super().__init__(nx, ne, ni)
-    
-    def prepare_lin_sys(self, Q, A, C, s, mu, r):
-        # S_inv = np.diag(1 / s)
-        S = np.diag(s)
-        U = np.diag(mu)
-        
-        M = np.vstack((np.hstack((Q, A.T, C.T, np.zeros((self.nx, self.ni)))),
-                       np.hstack((A, np.zeros((self.ne, self.ne + 2 * self.ni)))),
-                       np.hstack((C, np.zeros((self.ni, self.ne + self.ni)), S)),
-                       np.hstack((np.zeros((self.ni, self.nx + self.ne)), S, U @ S))
-                       ))
-        
-        return M, r
-        
-    def recover_step(self, Q, A, C, s, mu, r, delta_p):
-        delta_p[self.idx_c:] *= s
-        
-        return delta_p
+    def solve_lin_sys(self, M, r):
+        raise NotImplementedError("Appears there is no binding for LU factorization in EigenPy")
+        decomp = eigenpy.LU(M)
+        return decomp.solve(-r)
     

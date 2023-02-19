@@ -152,7 +152,8 @@ class ControlQP(ConvexQP):
     def get_cost(self):
         Q = self.osqp.qp_problem['P'].toarray()
         c = self.osqp.qp_problem['q']
-        
+        print(Q)
+        print(Q.shape)
         return Q, c
     
     def get_equality_constraint(self):
@@ -180,4 +181,6 @@ class ControlQP(ConvexQP):
         d = np.hstack((d_u, -d_l))
         
         return C, d
-    
+
+qp = ControlQP(2)
+print(qp.nx)
