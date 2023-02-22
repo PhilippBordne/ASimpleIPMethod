@@ -40,7 +40,42 @@ def plot_2d(Q: np.ndarray, c: np.ndarray, x_traj: np.ndarray, x_min: float, x_ma
     plt.legend()
     plt.show()
 
-# def function_2d(Q: np.ndarray, x: np.ndarray):
 
-# plot_2d(np.eye(2), np.array([-1, -1]), np.array([1, -1]), np.array([-1]), np.array([[2, -1], [4, -1]]), np.array([-1, -1]),
-        # -4, 4, -4, 4)
+def plot_complementaritities():
+    # (X, Y) = np.meshgrid(np.linspace(0, 5, 100), np.linspace(0, 5, 100))
+    (X, Y) = np.meshgrid([i/100 for i in range(500)], [i/100 for i in range(500)])
+    grid = np.stack((X, Y), axis=2)
+    
+    tau = 0.2
+    
+    non_smooth = X * Y
+    smooth_1 = X * Y - tau
+    smooth_2 = X * Y - 0.5 * tau
+    smooth_3 = X * Y - 0.25 * tau
+    smooth_4 = X * Y - 0.025 * tau
+    
+    fig, ax = plt.subplots()
+    ax.axhline(y=0, color='k', linewidth=0.75)
+    ax.axvline(x=0, color='k', linewidth=0.75)
+    plt.plot([], [], color='#1f77b4', label=r"smoothened complementarities")
+    plt.plot([], [], color='#ff7f0e', label="non-smooth complementarity")
+    c1 = plt.contour(X, Y, smooth_1, [0], linewidths=2, colors='#1f77b4')
+    c2 = plt.contour(X, Y, smooth_2, [0], linewidths=2, colors='#1f77b4')
+    c3 = plt.contour(X, Y, smooth_3, [0], linewidths=2, colors='#1f77b4')
+    c4 = plt.contour(X, Y, smooth_4, [0], linewidths=2, colors='#1f77b4')
+    plt.contour(X, Y, non_smooth, [0], linewidths=3, colors='#ff7f0e')
+    plt.gca().set_aspect('equal', adjustable='box')
+    plt.clabel(c1, inline=1, fontsize=10, inline_spacing=0, manual=[(0.75, 0)], fmt=r'$\tau=0.2$')
+    plt.clabel(c2, inline=1, fontsize=10, inline_spacing=0, manual=[(0.75, 0)], fmt=r'$\tau=0.1$')
+    plt.clabel(c3, inline=1, fontsize=10, inline_spacing=0, manual=[(0.75, 0)], fmt=r'$\tau=0.05$')
+    plt.clabel(c4, inline=1, fontsize=10, inline_spacing=0, manual=[(0.75, 0)], fmt=r'$\tau=0.005$')
+    # plt.title(r"smoothened complementarities for $\tau \in \{0.005, 0.05, 0.1, 0.2\}$")
+    plt.xlim(-0.2, 1.5)
+    plt.ylim(-0.2, 1.5)
+    plt.xlabel(r'$\mu$')
+    plt.ylabel(r's')
+    plt.legend()
+    plt.show()
+    
+    
+# plot_complementaritities()

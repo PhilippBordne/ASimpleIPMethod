@@ -64,26 +64,44 @@ class LDLTSolverEigen(LDLTSolver):
     
 class LDLTSolverOwn(LDLTSolver):
     def solve_lin_sys(self, M, r):
+        n = len(M)
         L, D, perm = ldl(M)
         
-        n = len(M)
+        # scipy.linalg.ldl returns L such that permutation needs to be applied first to make it triangular
+        # create permutation matrix first
+        P = np.zeros_like(M)
+        for i, j in enumerate(perm):
+            P[i, j] = 1
+
+        # if not np.all(perm == np.arange(len(M))):
+        #     plt.spy(P@L)
+        #     plt.show()
+            
+        # create references for upper and lower triangular matrices:
+        L = P @ L
+        U = L.T
 
         # convert residual to RHS and match the row permutation of M
         # perform all computations in-place
-        # z = - np.array(r[perm], dtype=np.float128)
-        z = - r[perm]
+        z = - P @ r
         
+        # z_1
         # backsolve for Lz = r, z prior is r, posterior is z
+        # z_1 = np.zeros(n)
         for i in range(n):
             z[i] = z[i] - np.sum(L[i, :i] * z[:i])
-        
+            
+        # z_2
         # solve for y from Dy = z (z prior is z, posterior is y)
         z = 1 / np.diag(D) * z
         
+        # z_3
         # get actual step p for L^T @ p = y (z prior is y, z posterior is p)
         for i in reversed(range(n)):
-            z[i] = z[i] - np.sum(L[i+1:, i] * z[i+1:])
+            z[i] = z[i] - np.sum(U[i, i+1:] * z[i+1:])
         
+        # delta p
+        z = P.T @ z
         return z
     
 class LUSolver(LinSysSolver):

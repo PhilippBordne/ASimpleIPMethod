@@ -1,7 +1,10 @@
 import numpy as np
 from osqp_benchmarks.problem_classes.random_qp import RandomQPExample
 from osqp_benchmarks.problem_classes.control import ControlExample
+from scipy.sparse.linalg import ArpackNoConvergence
+from cvxpy import SolverError
 from ldlt_solver import LinSysSolver
+
 
 class ConvexQP():
     def __init__(self, n: int, seed=1, sparsity=0.15, store_traj=False) -> None:
@@ -51,8 +54,11 @@ class ConvexQP():
         
     
     def get_x_sol_cvxpy(self):
-        self.osqp.cvxpy_problem.solve()
-        return self.osqp.revert_cvxpy_solution()[0]
+        try:
+            self.osqp.cvxpy_problem.solve()
+        except (ArpackNoConvergence, SolverError):
+            return False, None
+        return True, self.osqp.revert_cvxpy_solution()[0]
     
     
     def get_equality_constraint(self):
@@ -104,6 +110,11 @@ class ConvexQP():
         #TODO: move into solver class and use heuristic from OOQP
         return 10 * np.ones(self.ni)
     
+    def get_true_sparsity(self):
+        non_zeros = np.count_nonzero(self.Q) + np.count_nonzero(self.A) + np.count_nonzero(self.C)
+        true_sparsity = non_zeros / (self.nx * (self.nx + self.ne + self.ni))
+        return true_sparsity
+    
 
 class RandomQP(ConvexQP):
     # self.__init__(self, n: int, seed=1, sparsity=0.15, store_traj=False) -> None:
@@ -152,8 +163,6 @@ class ControlQP(ConvexQP):
     def get_cost(self):
         Q = self.osqp.qp_problem['P'].toarray()
         c = self.osqp.qp_problem['q']
-        print(Q)
-        print(Q.shape)
         return Q, c
     
     def get_equality_constraint(self):
@@ -181,6 +190,3 @@ class ControlQP(ConvexQP):
         d = np.hstack((d_u, -d_l))
         
         return C, d
-
-qp = ControlQP(2)
-print(qp.nx)
