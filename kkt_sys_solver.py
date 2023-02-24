@@ -1,5 +1,6 @@
 import numpy as np
 from scipy.linalg import ldl
+from scipy import sparse
 import eigenpy
 from qps import ConvexQP
 from matplotlib import pyplot as plt
@@ -107,17 +108,8 @@ class LDLTSolverScipy(LDLTSolver):
         for i, j in enumerate(perm):
             P[i, j] = 1
 
-        if not np.all(perm == np.arange(n)):
-            plt.spy(L)
-            plt.show()
-        
         # create references lower triangular matrix:
         L_tilde = P @ L
-        if not np.all(perm == np.arange(n)):
-            plt.spy(L_tilde)
-            plt.show()
-            plt.spy(L_tilde.T)
-            plt.show()
         
         # solve linear system for p via backsubstitution from:
         # L_tilde @ D @ L_tilde.T @ P @ p = - P @ r
@@ -133,7 +125,9 @@ class LDLTSolverScipy(LDLTSolver):
             
         # p_2: scale to obtain RHS for term in brackets
         # D @ (L_tilde.T @ P @ p) = D @ L_tilde.T @ P @ p
-        p = 1 / np.diag(D) * p
+        # unfortunately need to use inverse here because D might only be block diagonal of unknown block size
+        # p = 1 / np.diag(D) * p
+        p = np.linalg.inv(D) @ p
         
         # p_3: backsubstitute to obtain RHS for term in brackets
         # L_tilde.T @ (P @ p) = L_tilde.T @ P @ p

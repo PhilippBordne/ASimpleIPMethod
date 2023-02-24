@@ -12,15 +12,15 @@ path_to_data = Path(__file__).parent / 'data'
 # load experimental data into pandas data frame
 def load_data(problem_class: str):
     data_ldlt_eigen = pd.read_csv(f"{path_to_data}/{problem_class}_LDLT_experiment_results.csv", delimiter=';', header=None)
-    data_ldlt_scipy = pd.read_csv(f"{path_to_data}/{problem_class}_LDLT_own_experiment_results.csv", delimiter=';', header=None)
+    data_ldlt_scipy = pd.read_csv(f"{path_to_data}/{problem_class}_LDLT_scipy_experiment_results.csv", delimiter=';', header=None)
     data_lu = pd.read_csv(f"{path_to_data}/{problem_class}_LU_experiment_results.csv", delimiter=';', header=None)
     return data_ldlt_eigen, data_ldlt_scipy, data_lu
 
 
 # plot runtime for the qp benchmarks for all sparsities settings over the dimension in x
 def plot_runtimes(data_ldlt_eigen, data_ldlt_scipy, data_lu, data_cvxpy, criterion: str, log=True, xticks=None):
-    plt.plot(data_ldlt_eigen, label="LDLT (Eigen)")
-    plt.plot(data_ldlt_scipy, label="LDLT (scipy)")
+    plt.plot(data_ldlt_eigen, 'g', label="LDLT (Eigen)")
+    plt.plot(data_ldlt_scipy, 'g:', label="LDLT (scipy)")
     plt.plot(data_lu, label="LU")
     plt.plot(data_cvxpy, label="CVXPY")
     if criterion == "n":
@@ -69,4 +69,6 @@ def ratio_of_problems_solved(problem_class):
 # ratio_of_problems_solved("random_qp")
 # ratio_of_problems_solved("control")
 
-plot_runtimes_overall("random_qp", log=False)
+# plot_runtimes_overall("random_qp")
+
+plot_runtimes_sparsities(10)

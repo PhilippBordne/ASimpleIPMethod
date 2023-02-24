@@ -18,15 +18,10 @@ else:
     print("directory exits")
 
 # classes to take the benchmark problems from
-# classes = ["random_qp", "control"]
-# classes = ["control"]
-classes = ["random_qp"]
+classes = ["random_qp", "control"]
 
 # linear system solvers to be evaluated together with the IP method
-# solvers = ["LU", "LDLT_eigen", "LDLT_scipy"]
-solvers = ["LDLT_scipy"]
-# solvers = ["LDLT_eigen"]
-# solvers = ["LU"]
+solvers = ["LU", "LDLT", "LDLT_scipy"]
 
 # sparsity parameters for creation of the RandomQP instances
 sparse = [0.08, 0.09, 0.1, 0.15, 0.3]
@@ -63,7 +58,7 @@ for class_name in classes:
                     # choose solver
                     if solver_name == "LU":
                         solver = LUSolverNumpy()
-                    elif solver_name == "LDLT_eigen":
+                    elif solver_name == "LDLT":
                         solver = LDLTSolverEigen()
                     elif solver_name == "LDLT_scipy":
                         solver = LDLTSolverScipy()
