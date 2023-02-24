@@ -7,7 +7,7 @@ import numpy as np
 from pathlib import Path
 import os
 import time
-from linsys_solver import LDLTSolverEigen, LUSolverNumpy, LDLTSolverOwn
+from kkt_sys_solver import LDLTSolverEigen, LUSolverNumpy, LDLTSolverOwn
 from qps import RandomQP, ControlQP
 from ip_method import IPMethod
 

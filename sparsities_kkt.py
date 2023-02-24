@@ -3,7 +3,7 @@ Script used to obtain sparsities of KKT systems for RandomQP instances generated
 parameters rho.
 """
 
-from qps import RandomQP
+from qps import RandomQP, ControlQP
 import numpy as np
 
 n = 100

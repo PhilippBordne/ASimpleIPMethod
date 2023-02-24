@@ -1,14 +1,12 @@
 import numpy as np
 from matplotlib import pyplot as plt
-from timeit import default_timer as timer
-from plot_2d import plot_2d
-from linsys_solver import LinSysSolver
+from kkt_sys_solver import KKTSysSolver
 from qps import ConvexQP
 
 
 class IPMethod():
-    def __init__(self, qp: ConvexQP, solver: LinSysSolver, tol_r: float=1e-8, t_init: float=0.75, red_t: float=0.3,
-                 tol_t: float=1e-8, beta: float=0.9, min_alpha: float=1e-8, max_iter: int=100) -> None:
+    def __init__(self, qp: ConvexQP, solver: KKTSysSolver, tol_r: float=1e-8, t_init: float=0.75, beta: float=0.3,
+                 tol_t: float=1e-8, gamma: float=0.9, min_alpha: float=1e-8, max_iter: int=100) -> None:
         """
         Interior Point method tho minimize a convex quadratic programm with the option to use different linear system
         solvers for the KKT system.
@@ -17,9 +15,9 @@ class IPMethod():
             solver: linear system solver for the KKT system
             tol_r: tolerance for the maximum residual of KKT system to deem the QP to have converged to its optimum.
             t_init: initial value of tau to smoothen the complementarity condition
-            red_t: factor to reduce tau after KKT system was solved for current tau
+            beta: factor to reduce tau after KKT system was solved for current tau
             tol_t: tolerance for final value of tau after which solved KKT system is deemed as final solution
-            beta: reduction factor for line search on step length to comply to non-negativity condition for mu and s
+            gamma: reduction factor for line search on step length to comply to non-negativity condition for mu and s
             min_alpha: value of alpha that causes no valid step length found error.
             max_iter: maximum number of iterations taken by the IP method.
         """
@@ -28,10 +26,10 @@ class IPMethod():
         self.tol_r = tol_r
         
         self.tau = t_init
-        self.red_t = red_t
+        self.red_t = beta
         self.tol_t = tol_t
         
-        self.red_alpha = beta
+        self.red_alpha = gamma
         self.min_alpha = min_alpha
         
         self.max_iter = max_iter

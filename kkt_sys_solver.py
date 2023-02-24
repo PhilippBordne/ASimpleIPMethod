@@ -1,10 +1,9 @@
 import numpy as np
 from scipy.linalg import ldl
-from matplotlib import pyplot as plt
 import eigenpy
 
 #TODO: Consider making LinSysSolver independent from problem dimensions
-class LinSysSolver():
+class KKTSysSolver():
     def __init__(self, nx: int, ne: int, ni: int) -> None:
         """
         Abstract class that defines the linear system solve for the KKT system of a Quadratic Program.
@@ -44,7 +43,7 @@ class LinSysSolver():
         return step
        
 
-class LDLTSolver(LinSysSolver):
+class LDLTSolver(KKTSysSolver):
     def prepare_lin_sys(self, Q, A, C, s, mu, r):
         """
         Eliminate mu and s and build a condensed KKT system
@@ -106,31 +105,31 @@ class LDLTSolverOwn(LDLTSolver):
         L_tilde = P @ L
         
         # solve linear system for p via backsubstitution from:
-        # L_tilde @ D @ L_tilde.T @ P @ z = - P @ r
+        # L_tilde @ D @ L_tilde.T @ P @ p = - P @ r
 
         # convert residual to RHS and match the row permutation of M
         # perform all computations in-place
-        z = - P @ r
+        p = - P @ r
         
-        # z_1: backsubstitute to obtain RHS for term in brackets
-        # L_tilde @ (D @ L_tilde.T @ P @ z) = - P @ r
+        # p_1: backsubstitute to obtain RHS for term in brackets
+        # L_tilde @ (D @ L_tilde.T @ P @ p) = - P @ r
         for i in range(n):
-            z[i] = z[i] - np.sum(L_tilde[i, :i] * z[:i])
+            p[i] = p[i] - np.sum(L_tilde[i, :i] * p[:i])
             
-        # z_2: scale to obtain RHS for term in brackets
-        # D @ (L_tilde.T @ P @ z) = D @ L_tilde.T @ P @ z
-        z = 1 / np.diag(D) * z
+        # p_2: scale to obtain RHS for term in brackets
+        # D @ (L_tilde.T @ P @ p) = D @ L_tilde.T @ P @ p
+        p = 1 / np.diag(D) * p
         
-        # z_3: backsubstitute to obtain RHS for term in brackets
-        # L_tilde.T @ (P @ z) = L_tilde.T @ P @ z
+        # p_3: backsubstitute to obtain RHS for term in brackets
+        # L_tilde.T @ (P @ p) = L_tilde.T @ P @ p
         for i in reversed(range(n)):
-            z[i] = z[i] - np.sum(L_tilde.T[i, i+1:] * z[i+1:])
+            p[i] = p[i] - np.sum(L_tilde.T[i, i+1:] * p[i+1:])
         
-        # z_4: undo permutation to obtain target value z
-        z = P.T @ z
-        return z
+        # p_4: undo permutation to obtain target value p
+        p = P.T @ p
+        return p
     
-class LUSolver(LinSysSolver):
+class LUSolver(KKTSysSolver):
     def prepare_lin_sys(self, Q, A, C, s, mu, r):
         """
         Construct the full KKT system without any elimination of variables.
