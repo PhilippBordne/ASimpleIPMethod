@@ -3,7 +3,7 @@ A simple example on how to use a IP method together with the chosen solver on a 
 """
 
 from ip_method import IPMethod
-from linsys_solver import LDLTSolverOwn
+from kkt_sys_solver import LDLTSolverOwn
 from qps import RandomQP
 
 # create a QP to solve and a solver to solve its KKT systems.
