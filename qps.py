@@ -1,6 +1,6 @@
 import numpy as np
-from osqp_benchmarks.problem_classes.random_qp import RandomQPExample
-from osqp_benchmarks.problem_classes.control import ControlExample
+from osqp_benchmarks.random_qp import RandomQPExample
+from osqp_benchmarks.control import ControlExample
 from scipy.sparse.linalg import ArpackNoConvergence
 from cvxpy import SolverError
 from ldlt_solver import LinSysSolver
@@ -42,7 +42,6 @@ class ConvexQP():
             
         self.p = None
         
-        
     def get_residual(self, tau):
         r_L = self.Q @ self.x + self.c + self.A.T @ self.l + self.C.T @ self.mu
         r_e = self.A @ self.x - self.b
@@ -51,7 +50,6 @@ class ConvexQP():
         
         r = np.hstack([r_L, r_e, r_i, r_c])
         return r
-        
     
     def get_x_sol_cvxpy(self):
         try:
@@ -70,11 +68,9 @@ class ConvexQP():
     def get_inequality_constraint(self):
         raise NotImplementedError("Must be implemented by derived class of ConvexQP.")
     
-    
     def compute_step(self, solver: LinSysSolver, tau: float):
         self.p = solver.solve(self.Q, self.A, self.C, self.s, self.mu, self.get_residual(tau))
         return self.p
-    
     
     def execute_step(self, alpha):
         if self.p is None:
@@ -87,12 +83,10 @@ class ConvexQP():
         self.p = None
         return
     
-    
     def get_step_mu_s(self):
         if self.p is None:
             raise Exception("No step size has been computed for the current iterate.")
         return np.split(self.p[self.idx_mu:], [self.ni])
-    
     
     def get_x_init(self):
         #TODO: move into solver class and use heuristic from OOQP
@@ -111,9 +105,22 @@ class ConvexQP():
         return 10 * np.ones(self.ni)
     
     def get_true_sparsity(self):
+        # retrospectively not very useful for analysis. Functions giving information on sparsitiy of KKT
+        # system matrices are more informative.
         non_zeros = np.count_nonzero(self.Q) + np.count_nonzero(self.A) + np.count_nonzero(self.C)
         true_sparsity = non_zeros / (self.nx * (self.nx + self.ne + self.ni))
         return true_sparsity
+    
+    def get_M_sparsity(self):
+        non_zeros = np.count_nonzero(self.Q) + 2 * (np.count_nonzero(self.A) + np.count_nonzero(self.C))\
+            + 3 * self.ni
+        sparsity = non_zeros / (self.nx + self.ne + 2 * self.ni)**2
+        return sparsity
+    
+    def get_M_sym_sparsity(self):
+        non_zeros = np.count_nonzero(self.Q + self.C.T @ self.C) + 2 * np.count_nonzero(self.A)
+        sparsity = non_zeros / (self.nx + self.ne)**2
+        return sparsity
     
 
 class RandomQP(ConvexQP):
