@@ -121,11 +121,4 @@ class LUSolver(LinSysSolver):
 class LUSolverNumpy(LUSolver):
     def solve_lin_sys(self, M, r):
         return np.linalg.solve(M, -r)
-    
-class LUSolverEigen(LUSolver):
-    
-    def solve_lin_sys(self, M, r):
-        raise NotImplementedError("Appears there is no binding for LU factorization in EigenPy")
-        decomp = eigenpy.LU(M)
-        return decomp.solve(-r)
-    
+     

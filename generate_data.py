@@ -14,8 +14,7 @@ else:
     
 classes = ["random_qp", "control"]
 
-# solvers = ["LU", "LDLT"]
-solvers = ["LDLT_own"]
+solvers = ["LU", "LDLT", "LDLT_own"]
 
 sparse = [0.08, 0.09, 0.1, 0.15, 0.3]
 

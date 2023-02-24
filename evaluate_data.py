@@ -9,58 +9,64 @@ IDX_MAX_DIFF, IDX_MEAN_DIFF) = np.arange(0, 14)
 
 path_to_data = Path(__file__).parent / 'data'
 
-# load experimental data into pyton data frame
-data_LDLT_qp = pd.read_csv(f"{path_to_data}/random_qp_LDLT_experiment_results.csv", delimiter=';', header=None)
-data_LDLT_control = pd.read_csv(f"{path_to_data}/control_LDLT_experiment_results.csv", delimiter=';', header=None)
-data_LDLT_own_qp = pd.read_csv(f"{path_to_data}/random_qp_LDLT_own_experiment_results.csv", delimiter=';', header=None)
-data_LDLT_own_control = pd.read_csv(f"{path_to_data}/control_LDLT_own_experiment_results.csv", delimiter=';', header=None)
-data_LU_qp = pd.read_csv(f"{path_to_data}/random_qp_LU_experiment_results.csv", delimiter=';', header=None)
-data_LU_control = pd.read_csv(f"{path_to_data}/control_LU_experiment_results.csv", delimiter=';', header=None)
+# load experimental data into pandas data frame
+def load_data(problem_class: str):
+    data_ldlt_eigen = pd.read_csv(f"{path_to_data}/{problem_class}_LDLT_experiment_results.csv", delimiter=';', header=None)
+    data_ldlt_scipy = pd.read_csv(f"{path_to_data}/{problem_class}_LDLT_own_experiment_results.csv", delimiter=';', header=None)
+    data_lu = pd.read_csv(f"{path_to_data}/{problem_class}_LU_experiment_results.csv", delimiter=';', header=None)
+    return data_ldlt_eigen, data_ldlt_scipy, data_lu
 
 
-# # plot runtime for the qp benchmarks for all sparsities settings over the dimension in x
-# data_ldlt = data_LDLT_qp.groupby([IDX_DIM])[IDX_DUR].mean()
-# data_lu = data_LU_qp.groupby([IDX_DIM])[IDX_DUR].mean()
-# data_cvxpy = data_LDLT_qp.loc[data_LDLT_qp[IDX_CVXPY_CONV] != 0.0].groupby([IDX_DIM])[IDX_CVXPY_DUR].mean()
-# plt.plot(data_ldlt, label="LDLT")
-# plt.plot(data_lu, label="LU")
-# plt.plot(data_cvxpy, label="CVXPY")
-# plt.xlabel("Dimension decision variable x")
-# plt.ylabel("Runtime [s]")
-# plt.yscale('log')
-# plt.legend()
-# plt.show()
+# plot runtime for the qp benchmarks for all sparsities settings over the dimension in x
+def plot_runtimes(data_ldlt_eigen, data_ldlt_scipy, data_lu, data_cvxpy, criterion: str, log=True, xticks=None):
+    plt.plot(data_ldlt_eigen, label="LDLT (Eigen)")
+    plt.plot(data_ldlt_scipy, label="LDLT (scipy)")
+    plt.plot(data_lu, label="LU")
+    plt.plot(data_cvxpy, label="CVXPY")
+    if criterion == "n":
+        plt.xlabel(r"$n$")
+    elif criterion == "rho":
+        plt.xlabel(r"$\rho$")
+    plt.ylabel(r"Runtime $[s]$")
+    if log:
+        plt.yscale('log')
+    if xticks is not None:
+        plt.xticks(xticks)
+    plt.grid()
+    plt.legend()
+    plt.show()
 
-# plot runtime for the qp benchmarks for decision dim 50 over the sparsities
-# data_ldlt = data_LDLT_qp.loc[data_LDLT_qp[IDX_DIM] == 50].groupby([IDX_T_SPARSE])[IDX_DUR].mean()
-# data_lu = data_LU_qp.loc[data_LU_qp[IDX_DIM] == 50].groupby([IDX_T_SPARSE])[IDX_DUR].mean()
-# data_cvxpy = data_LDLT_qp.loc[(data_LDLT_qp[IDX_DIM] == 50) & (data_LDLT_qp[IDX_CVXPY_CONV] == 1)].groupby([IDX_T_SPARSE])[IDX_CVXPY_DUR].mean()
+ 
+def plot_runtimes_overall(problem_class: str, log=True):
+    data_ldlt_eigen, data_ldlt_scipy, data_lu = load_data(problem_class)
+    data_ldlt_eigen = data_ldlt_eigen.groupby([IDX_DIM])[IDX_DUR].mean()
+    data_ldlt_scipy = data_ldlt_scipy.groupby([IDX_DIM])[IDX_DUR].mean()
+    data_cvxpy = data_lu.loc[data_lu[IDX_CVXPY_CONV] != 0.0].groupby([IDX_DIM])[IDX_CVXPY_DUR].mean()
+    data_lu = data_lu.groupby([IDX_DIM])[IDX_DUR].mean()
+    
+    plot_runtimes(data_ldlt_eigen, data_ldlt_scipy, data_lu, data_cvxpy, criterion="n", log=log)
+    
+def plot_runtimes_sparsities(dim):
+    data_ldlt_eigen, data_ldlt_scipy, data_lu = load_data("random_qp")
+    data_ldlt_eigen = data_ldlt_eigen.loc[data_ldlt_eigen[IDX_DIM] == dim].groupby([IDX_SPARSE])[IDX_DUR].mean()
+    data_ldlt_scipy = data_ldlt_scipy.loc[data_ldlt_scipy[IDX_DIM] == dim].groupby([IDX_SPARSE])[IDX_DUR].mean()
+    data_cvxpy = data_lu.loc[(data_lu[IDX_DIM] == dim) & (data_lu[IDX_CVXPY_CONV] == 1)].groupby([IDX_SPARSE])[IDX_CVXPY_DUR].mean()
+    data_lu = data_lu.loc[data_lu[IDX_DIM] == dim].groupby([IDX_SPARSE])[IDX_DUR].mean()
+    plot_runtimes(data_ldlt_eigen, data_ldlt_scipy, data_lu, data_cvxpy, "rho", log=False, xticks=[0.08, 0.09, 0.1, 0.15, 0.3])
+    
+def ratio_of_problems_solved(problem_class):
+    data_ldlt_eigen, data_ldlt_scipy, data_lu = load_data(problem_class)
+    print(f"Ratio of problems solved LDLT Eigen:\n {data_ldlt_eigen[[IDX_IP_CONV, IDX_CVXPY_CONV]].aggregate(['mean'])}")
+    print(f"Mean difference x solutions CVXPY - LDLT Eigen:\n {data_ldlt_eigen[IDX_MAX_DIFF].aggregate(['mean'])}")
+    print(f"Max difference x solutions CVXPY - LDLT Eigen:\n {data_ldlt_eigen[IDX_MAX_DIFF].aggregate(['max'])}")
+    print(f"Ratio of problems solved LDLT scipy:\n {data_ldlt_scipy[[IDX_IP_CONV, IDX_CVXPY_CONV]].aggregate(['mean'])}")
+    print(f"Mean difference x solutions CVXPY - LDLT scipy:\n {data_ldlt_scipy[IDX_MAX_DIFF].aggregate(['mean'])}")
+    print(f"Max difference x solutions CVXPY - LDLT scipy:\n {data_ldlt_scipy[IDX_MAX_DIFF].aggregate(['max'])}")
+    print(f"Ratio of problems solved LU:\n {data_lu[[IDX_IP_CONV, IDX_CVXPY_CONV]].aggregate(['mean'])}")
+    print(f"Mean difference x solutions CVXPY - LU:\n {data_lu[IDX_MAX_DIFF].aggregate(['mean'])}")
+    print(f"Max difference x solutions CVXPY - LU:\n {data_lu[IDX_MAX_DIFF].aggregate(['max'])}")
 
-data_ldlt = data_LDLT_qp.loc[data_LDLT_qp[IDX_DIM] == 50]
+# ratio_of_problems_solved("random_qp")
+# ratio_of_problems_solved("control")
 
-plt.scatter(data_ldlt[IDX_T_SPARSE], data_ldlt[IDX_DUR], label="LDLT")
-# plt.plot(data_ldlt, label="LDLT")
-# plt.plot(data_lu, label="LU")
-# plt.plot(data_cvxpy, label="CVXPY")
-plt.xlabel("Sparsity parameter")
-plt.ylabel("Runtime [s]")
-# plt.yscale('log')
-plt.legend()
-plt.show()
-
-
-# avg_dur_over_dim_qp_ldlt = data_LDLT_qp.groupby([IDX_DIM])[IDX_DUR].mean()
-# # avg_dur_over_dim_qp_ldlt = avg_dur_over_dim_qp_ldlt.reset_index()
-# # print(avg_dur_over_dim_qp_ldlt)
-# # print(avg_dur_over_dim_qp_ldlt.loc[avg_dur_over_dim_qp_ldlt[IDX_DIM] == 10.0])
-
-# plt.plot(avg_dur_over_dim_qp_ldlt)
-# plt.show()
-
-
-# # plt.scatter(res_ldlt_dim, res_ldlt_dur)
-
-# # # plt.scatter(res_ldlt[:, 0], res_ldlt[:, 1], label="LDLT")
-# # # plt.scatter(res_lu[:, 0], res_lu[:, 1], label="LU")
-# # plt.legend()
-# # plt.show()
+plot_runtimes_overall("random_qp", log=False)
