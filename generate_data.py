@@ -7,7 +7,7 @@ import numpy as np
 from pathlib import Path
 import os
 import time
-from kkt_sys_solver import LDLTSolverEigen, LUSolverNumpy, LDLTSolverOwn
+from kkt_sys_solver import LDLTSolverEigen, LUSolverNumpy, LDLTSolverScipy
 from qps import RandomQP, ControlQP
 from ip_method import IPMethod
 
@@ -18,10 +18,15 @@ else:
     print("directory exits")
 
 # classes to take the benchmark problems from
-classes = ["random_qp", "control"]
+# classes = ["random_qp", "control"]
+# classes = ["control"]
+classes = ["random_qp"]
 
 # linear system solvers to be evaluated together with the IP method
-solvers = ["LU", "LDLT", "LDLT_own"]
+# solvers = ["LU", "LDLT_eigen", "LDLT_scipy"]
+solvers = ["LDLT_scipy"]
+# solvers = ["LDLT_eigen"]
+# solvers = ["LU"]
 
 # sparsity parameters for creation of the RandomQP instances
 sparse = [0.08, 0.09, 0.1, 0.15, 0.3]
@@ -54,17 +59,14 @@ for class_name in classes:
                         qp = RandomQP(dim, seed, sparsity)
                     elif class_name == "control":
                         qp = ControlQP(dim, seed)
-                    nx = qp.nx
-                    ne = qp.ne
-                    ni = qp.ni
                     
                     # choose solver
                     if solver_name == "LU":
-                        solver = LUSolverNumpy(nx, ne, ni)
-                    elif solver_name == "LDLT":
-                        solver = LDLTSolverEigen(nx, ne, ni)
-                    elif solver_name == "LDLT_own":
-                        solver = LDLTSolverOwn(nx, ne, ni)
+                        solver = LUSolverNumpy()
+                    elif solver_name == "LDLT_eigen":
+                        solver = LDLTSolverEigen()
+                    elif solver_name == "LDLT_scipy":
+                        solver = LDLTSolverScipy()
                     
                     # initialize IP method with solver and qp
                     ip_solver = IPMethod(qp, solver)
@@ -77,6 +79,10 @@ for class_name in classes:
                     end = time.process_time()
                     
                     # get data to be stored in the results for current problem instance
+                    nx = qp.nx
+                    ne = qp.ne
+                    ni = qp.ni
+                    
                     true_sparsity = qp.get_true_sparsity()
                     duration = end - start
                     iters = ip_solver.iter

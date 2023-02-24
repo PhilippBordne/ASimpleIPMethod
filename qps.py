@@ -3,8 +3,6 @@ from osqp_benchmarks.random_qp import RandomQPExample
 from osqp_benchmarks.control import ControlExample
 from scipy.sparse.linalg import ArpackNoConvergence
 from cvxpy import SolverError
-from kkt_sys_solver import KKTSysSolver
-
 
 class ConvexQP():
     def __init__(self, n: int, seed=1) -> None:
@@ -76,12 +74,11 @@ class ConvexQP():
         """
         raise NotImplementedError("Must be implemented by derived class of ConvexQP.")
     
-    def compute_step(self, solver: KKTSysSolver, tau: float):
+    def set_p(self, p):
         """
-        Compute step direction for the current primal and dual iterates and current smoothening parameter tau.
+        sets internal step direction to p
         """
-        self.p = solver.solve(self.Q, self.A, self.C, self.s, self.mu, self.get_residual(tau))
-        return self.p
+        self.p = p
     
     def execute_step(self, alpha):
         """

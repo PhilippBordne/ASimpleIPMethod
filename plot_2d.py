@@ -1,3 +1,8 @@
+""" 
+Some function to create plots for report.
+"""
+
+
 import numpy as np
 from matplotlib import pyplot as plt
 

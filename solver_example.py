@@ -3,12 +3,12 @@ A simple example on how to use a IP method together with the chosen solver on a 
 """
 
 from ip_method import IPMethod
-from kkt_sys_solver import LDLTSolverOwn
+from kkt_sys_solver import LDLTSolverScipy, LDLTSolverEigen, LUSolverNumpy
 from qps import RandomQP
 
 # create a QP to solve and a solver to solve its KKT systems.
-qp = RandomQP(60, seed=2)
-solver = LDLTSolverOwn(qp.nx, qp.ne, qp.ni)
+qp = RandomQP(10, seed=0)
+solver = LDLTSolverScipy()
 
 # create an IP method instance acting on the QP and using the defined linear system solvers
 ip_solver = IPMethod(qp, solver)

@@ -1,77 +1,83 @@
 import numpy as np
 from scipy.linalg import ldl
 import eigenpy
+from qps import ConvexQP
+from matplotlib import pyplot as plt
 
-#TODO: Consider making LinSysSolver independent from problem dimensions
 class KKTSysSolver():
-    def __init__(self, nx: int, ne: int, ni: int) -> None:
+    def __init__(self) -> None:
         """
         Abstract class that defines the linear system solve for the KKT system of a Quadratic Program.
         """
-        self.nx = nx
-        self.ne = ne
-        self.ni = ni
-        self.idx_x = 0
-        self.idx_e = nx
-        self.idx_i = nx + ne
-        self.idx_c = nx + ne + ni
-        
-    def prepare_lin_sys(self, Q, A, C, s, mu, r):
-        """
-        Builds the KKT system from the QPs matrices and current iterate of primal and dual variables and residuals.
-        """
-        raise NotImplementedError(f"symmetrize method has to be implemented by a derived class.")
+        pass
     
-    def recover_step(self, Q, A, C, s, mu, r, delta_p):
-        """
-        Recovers step for QP in all primal and dual variables in case some of the where eliminated to obtain a
-        condensed KKT system.
-        """
-        raise NotImplementedError(f"recover_step method has to be implemented by a derived class.")        
-    
-    def solve(self, Q, A, C, s, mu, r):
+    def solve(self, qp: ConvexQP, tau):
         """
         Execute the 3 steps that are involved when solving the KKT system of a QP:
         1. prepare the linear system (from residuals and system matrices), might eliminate some variables
         2. solve the linear system using the linsys solution method of the class (LU or LDLT)
         3. in case variables whrere eliminated from KKT system recover the full step.
+        Set the computed step length in the qp
         """
-        M_sym,  r_sym = self.prepare_lin_sys(Q, A, C, s, mu, r)
+        r = qp.get_residual(tau)
+        M_sym,  r_sym = self.prepare_lin_sys(qp, r)
         delta_p = self.solve_lin_sys(M_sym, r_sym)
-        step = self.recover_step(Q, A, C, s, mu, r, delta_p)
+        step = self.recover_step(qp, delta_p, r)
+        qp.set_p(step)
         
         return step
-       
+        
+    def prepare_lin_sys(self, qp: ConvexQP, r):
+        """
+        Builds the KKT system from the QPs matrices and current iterate of primal and dual variables and residuals.
+        """
+        raise NotImplementedError(f"symmetrize method has to be implemented by a derived class.")
+    
+    def recover_step(self, qp: ConvexQP, delta_p, r):
+        """
+        Recovers step for QP in all primal and dual variables in case some of the where eliminated to obtain a
+        condensed KKT system.
+        """
+        raise NotImplementedError(f"recover_step method has to be implemented by a derived class.")           
 
 class LDLTSolver(KKTSysSolver):
-    def prepare_lin_sys(self, Q, A, C, s, mu, r):
+    def prepare_lin_sys(self, qp: ConvexQP, r):
         """
         Eliminate mu and s and build a condensed KKT system
         """
-        S_inv = np.diag(1 / s)
-        U = np.diag(mu)
+        idx_e = qp.nx
+        idx_i = idx_e + qp.ne
+        idx_c = idx_i + qp.ni
         
-        M = np.vstack((np.hstack((Q + C.T @ S_inv @ U @ C, A.T)),
-                        np.hstack((A, np.zeros((self.ne, self.ne))))))
+        S_inv = np.diag(1 / qp.s)
+        U = np.diag(qp.mu)
         
-        r = np.concatenate((r[:self.nx] + C.T @ S_inv @ (U @ r[self.idx_i:self.idx_c] - r[self.idx_c:]),
-                            r[self.idx_e:self.idx_i]))
+        M = np.vstack((np.hstack((qp.Q + qp.C.T @ S_inv @ U @ qp.C, qp.A.T)),
+                        np.hstack((qp.A, np.zeros((qp.ne, qp.ne))))))
+        
+        r = np.concatenate((r[:idx_e] + qp.C.T @ S_inv @ (U @ r[idx_i:idx_c] - r[idx_c:]),
+                            r[idx_e:idx_i]))
                
         return M, r
     
-    def recover_step(self, Q, A, C, s, mu, r, delta_p):
+    def recover_step(self, qp: ConvexQP, delta_p, r):
         """
-        Compute step for mu and s from the steps in x and lambda from the condensed KKT system.
+        Compute step for mu and s from the steps in x and lambda from the condensed KKT system and set the
+        step stored with the QP.
         """
-        S = np.diag(s)
-        S_inv = np.diag(1 / s)
-        U = np.diag(mu)
-        U_inv = np.diag(1 / mu)
+        idx_e = qp.nx
+        idx_i = idx_e + qp.ne
+        idx_c = idx_i + qp.ni
         
-        delta_x, delta_l = np.split(delta_p, [self.nx])
+        S = np.diag(qp.s)
+        S_inv = np.diag(1 / qp.s)
+        U = np.diag(qp.mu)
+        U_inv = np.diag(1 / qp.mu)
         
-        delta_mu = S_inv @ (U @ (r[self.idx_i:self.idx_c] + C @ delta_x) - r[self.idx_c:])
-        delta_s = - U_inv @ (r[self.idx_c:] + S @ delta_mu)
+        delta_x, delta_l = np.split(delta_p, [qp.nx])
+        
+        delta_mu = S_inv @ (U @ (r[idx_i:idx_c] + qp.C @ delta_x) - r[idx_c:])
+        delta_s = - U_inv @ (r[idx_c:] + S @ delta_mu)
         
         return np.concatenate((delta_x, delta_l, delta_mu, delta_s))
     
@@ -86,7 +92,7 @@ class LDLTSolverEigen(LDLTSolver):
         return decomp.solve(-r)
     
     
-class LDLTSolverOwn(LDLTSolver):
+class LDLTSolverScipy(LDLTSolver):
     def solve_lin_sys(self, M, r):
         """
         Solve symmetric linear system by obtaining LDLT factorization from scipy and a backsubstitution procedure on the
@@ -101,8 +107,17 @@ class LDLTSolverOwn(LDLTSolver):
         for i, j in enumerate(perm):
             P[i, j] = 1
 
+        if not np.all(perm == np.arange(n)):
+            plt.spy(L)
+            plt.show()
+        
         # create references lower triangular matrix:
         L_tilde = P @ L
+        if not np.all(perm == np.arange(n)):
+            plt.spy(L_tilde)
+            plt.show()
+            plt.spy(L_tilde.T)
+            plt.show()
         
         # solve linear system for p via backsubstitution from:
         # L_tilde @ D @ L_tilde.T @ P @ p = - P @ r
@@ -123,27 +138,27 @@ class LDLTSolverOwn(LDLTSolver):
         # p_3: backsubstitute to obtain RHS for term in brackets
         # L_tilde.T @ (P @ p) = L_tilde.T @ P @ p
         for i in reversed(range(n)):
-            p[i] = p[i] - np.sum(L_tilde.T[i, i+1:] * p[i+1:])
+            p[i] = p[i] - np.sum((L_tilde.T)[i, i+1:] * p[i+1:])
         
         # p_4: undo permutation to obtain target value p
         p = P.T @ p
         return p
     
 class LUSolver(KKTSysSolver):
-    def prepare_lin_sys(self, Q, A, C, s, mu, r):
+    def prepare_lin_sys(self, qp: ConvexQP, r):
         """
         Construct the full KKT system without any elimination of variables.
         """
         # compute the linear system matrix
-        J_L = np.hstack((Q, A.T, C.T, np.zeros((self.nx, self.ni))))
-        J_e = np.hstack((A, np.zeros((self.ne, self.ne + 2 * self.ni))))
-        J_i = np.hstack((C, np.zeros((self.ni, self.ne + self.ni)), np.eye(self.ni)))
-        J_c = np.hstack((np.zeros((self.ni, self.nx + self.ne)), np.diag(s), np.diag(mu)))
+        J_L = np.hstack((qp.Q, qp.A.T, qp.C.T, np.zeros((qp.nx, qp.ni))))
+        J_e = np.hstack((qp.A, np.zeros((qp.ne, qp.ne + 2 * qp.ni))))
+        J_i = np.hstack((qp.C, np.zeros((qp.ni, qp.ne + qp.ni)), np.eye(qp.ni)))
+        J_c = np.hstack((np.zeros((qp.ni, qp.nx + qp.ne)), np.diag(qp.s), np.diag(qp.mu)))
         M = np.vstack((J_L, J_e, J_i, J_c))
         
         return M, r
     
-    def recover_step(self, Q, A, C, s, mu, r, delta_p):
+    def recover_step(self, qp: ConvexQP, delta_p, r):
         """
         Nothing to do in LU case as we already computed the full step.
         """

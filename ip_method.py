@@ -40,7 +40,7 @@ class IPMethod():
         Compute step for root finding of KKT system, perform line search to fullfill non-negativity of mu and s
         and let qp execute step.
         """
-        self.qp.compute_step(self.solver, self.tau)
+        self.solver.solve(self.qp, self.tau)
         alpha = self.compute_step_length()
         self.qp.execute_step(alpha)
         self.iter += 1
