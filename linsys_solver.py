@@ -6,6 +6,9 @@ import eigenpy
 #TODO: Consider making LinSysSolver independent from problem dimensions
 class LinSysSolver():
     def __init__(self, nx: int, ne: int, ni: int) -> None:
+        """
+        Abstract class that defines the linear system solve for the KKT system of a Quadratic Program.
+        """
         self.nx = nx
         self.ne = ne
         self.ni = ni
@@ -15,14 +18,26 @@ class LinSysSolver():
         self.idx_c = nx + ne + ni
         
     def prepare_lin_sys(self, Q, A, C, s, mu, r):
+        """
+        Builds the KKT system from the QPs matrices and current iterate of primal and dual variables and residuals.
+        """
         raise NotImplementedError(f"symmetrize method has to be implemented by a derived class.")
     
     def recover_step(self, Q, A, C, s, mu, r, delta_p):
+        """
+        Recovers step for QP in all primal and dual variables in case some of the where eliminated to obtain a
+        condensed KKT system.
+        """
         raise NotImplementedError(f"recover_step method has to be implemented by a derived class.")        
     
     def solve(self, Q, A, C, s, mu, r):
+        """
+        Execute the 3 steps that are involved when solving the KKT system of a QP:
+        1. prepare the linear system (from residuals and system matrices), might eliminate some variables
+        2. solve the linear system using the linsys solution method of the class (LU or LDLT)
+        3. in case variables whrere eliminated from KKT system recover the full step.
+        """
         M_sym,  r_sym = self.prepare_lin_sys(Q, A, C, s, mu, r)
-        
         delta_p = self.solve_lin_sys(M_sym, r_sym)
         step = self.recover_step(Q, A, C, s, mu, r, delta_p)
         
@@ -31,6 +46,9 @@ class LinSysSolver():
 
 class LDLTSolver(LinSysSolver):
     def prepare_lin_sys(self, Q, A, C, s, mu, r):
+        """
+        Eliminate mu and s and build a condensed KKT system
+        """
         S_inv = np.diag(1 / s)
         U = np.diag(mu)
         
@@ -43,6 +61,9 @@ class LDLTSolver(LinSysSolver):
         return M, r
     
     def recover_step(self, Q, A, C, s, mu, r, delta_p):
+        """
+        Compute step for mu and s from the steps in x and lambda from the condensed KKT system.
+        """
         S = np.diag(s)
         S_inv = np.diag(1 / s)
         U = np.diag(mu)
@@ -58,12 +79,20 @@ class LDLTSolver(LinSysSolver):
 
 class LDLTSolverEigen(LDLTSolver):
     def solve_lin_sys(self, M, r):
+        """
+        Solve symmetric linear system using LDLT factorization through the implementation in the eigenpy / Eigen
+        package.
+        """
         decomp = eigenpy.LDLT(M)
         return decomp.solve(-r)
     
     
 class LDLTSolverOwn(LDLTSolver):
     def solve_lin_sys(self, M, r):
+        """
+        Solve symmetric linear system by obtaining LDLT factorization from scipy and a backsubstitution procedure on the
+        factorized linear system.
+        """
         n = len(M)
         L, D, perm = ldl(M)
         
@@ -73,39 +102,39 @@ class LDLTSolverOwn(LDLTSolver):
         for i, j in enumerate(perm):
             P[i, j] = 1
 
-        # if not np.all(perm == np.arange(len(M))):
-        #     plt.spy(P@L)
-        #     plt.show()
-            
-        # create references for upper and lower triangular matrices:
-        L = P @ L
-        U = L.T
+        # create references lower triangular matrix:
+        L_tilde = P @ L
+        
+        # solve linear system for p via backsubstitution from:
+        # L_tilde @ D @ L_tilde.T @ P @ z = - P @ r
 
         # convert residual to RHS and match the row permutation of M
         # perform all computations in-place
         z = - P @ r
         
-        # z_1
-        # backsolve for Lz = r, z prior is r, posterior is z
-        # z_1 = np.zeros(n)
+        # z_1: backsubstitute to obtain RHS for term in brackets
+        # L_tilde @ (D @ L_tilde.T @ P @ z) = - P @ r
         for i in range(n):
-            z[i] = z[i] - np.sum(L[i, :i] * z[:i])
+            z[i] = z[i] - np.sum(L_tilde[i, :i] * z[:i])
             
-        # z_2
-        # solve for y from Dy = z (z prior is z, posterior is y)
+        # z_2: scale to obtain RHS for term in brackets
+        # D @ (L_tilde.T @ P @ z) = D @ L_tilde.T @ P @ z
         z = 1 / np.diag(D) * z
         
-        # z_3
-        # get actual step p for L^T @ p = y (z prior is y, z posterior is p)
+        # z_3: backsubstitute to obtain RHS for term in brackets
+        # L_tilde.T @ (P @ z) = L_tilde.T @ P @ z
         for i in reversed(range(n)):
-            z[i] = z[i] - np.sum(U[i, i+1:] * z[i+1:])
+            z[i] = z[i] - np.sum(L_tilde.T[i, i+1:] * z[i+1:])
         
-        # delta p
+        # z_4: undo permutation to obtain target value z
         z = P.T @ z
         return z
     
 class LUSolver(LinSysSolver):
     def prepare_lin_sys(self, Q, A, C, s, mu, r):
+        """
+        Construct the full KKT system without any elimination of variables.
+        """
         # compute the linear system matrix
         J_L = np.hstack((Q, A.T, C.T, np.zeros((self.nx, self.ni))))
         J_e = np.hstack((A, np.zeros((self.ne, self.ne + 2 * self.ni))))
@@ -116,9 +145,15 @@ class LUSolver(LinSysSolver):
         return M, r
     
     def recover_step(self, Q, A, C, s, mu, r, delta_p):
+        """
+        Nothing to do in LU case as we already computed the full step.
+        """
         return delta_p
 
 class LUSolverNumpy(LUSolver):
     def solve_lin_sys(self, M, r):
+        """
+        linear system solve via LU factorization as implemented in numpy (using LAPACK).
+        """
         return np.linalg.solve(M, -r)
      
