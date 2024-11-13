@@ -17,5 +17,6 @@ Modified versions of two of the [OSQP problem classes](https://github.com/osqp/o
 - [ ] add installation instructions
 - [ ] add the report for the project
 - [ ] make sure evaluations are comprehensible and reproducible
+- [ ] organize the files
 - [ ] check and improve documentation and type hints
 
