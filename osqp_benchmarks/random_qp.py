@@ -2,7 +2,7 @@
 Compared to the original implementation on 
 https://github.com/osqp/osqp_benchmarks
 the RandomQPExample class was modified, such that density can be passed as parameter upon construction
-and that 1/4 of no. decision variables specifies no of equality constraint.
+and that there can be as many equality constraints as 1/4 of number of decision variables.
 Distributed by the authors under the Apache license which can be found in the same directory. 
 """
 
@@ -38,7 +38,7 @@ class RandomQPExample(object):
         v = np.random.randn(n)   # Fictitious solution
         
         # Philipp Bordne: here starts modification of original code
-        # 1/4 of problems are candidates for equality constraint problems
+        # There might be as many equality constraints as 1/4 of number of decision variables.
         self.ne = n // 4
         self.ni = self.m - self.ne
         z = self.A@v    # point within bounds
